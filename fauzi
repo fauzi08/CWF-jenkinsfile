@@ -1,0 +1,62 @@
+pipeline {
+    agent any
+    
+    environment {
+        MAVEN_HOME = tool name: 'Maven', type: 'Maven'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                script {
+                    def mvnCmd = "${MAVEN_HOME}/bin/mvn"
+                    sh "${mvnCmd} clean package"
+                }
+            }
+        }
+        
+        stage('Unit Tests') {
+            steps {
+                script {
+                    def mvnCmd = "${MAVEN_HOME}/bin/mvn"
+                    sh "${mvnCmd} test"
+                }
+            }
+        }
+        
+        stage('Code Coverage') {
+            steps {
+                script {
+                    def mvnCmd = "${MAVEN_HOME}/bin/mvn"
+                    sh "${mvnCmd} jacoco:prepare-agent test jacoco:report"
+                }
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/**/*.xml'
+                    jacoco(
+                        execPattern: '**/target/**.exec',
+                        classPattern: '**/target/classes',
+                        sourcePattern: '**/src/main/java'
+                    )
+                    archiveArtifacts artifacts: '**/target/*.jar', allowEmptyArchive: true
+                }
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def mvnCmd = "${MAVEN_HOME}/bin/mvn"
+                    sh "${mvnCmd} sonar:sonar"
+                }
+            }
+        }
+    }
+}
